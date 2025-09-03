@@ -209,12 +209,12 @@ class EfficientTAMBase(torch.nn.Module):
     def _build_sam_heads(self):
         """Build SAM-style prompt encoder and mask decoder."""
         self.sam_prompt_embed_dim = self.hidden_dim
-        self.sam_image_embedding_size = self.image_size // self.backbone_stride
+        self.sam_image_embedding_size = self.image_size // self.backbone_stride # 512/16
 
         # build PromptEncoder and MaskDecoder from SAM
         # (their hyperparameters like `mask_in_chans=16` are from SAM code)
         self.sam_prompt_encoder = PromptEncoder(
-            embed_dim=self.sam_prompt_embed_dim,
+            embed_dim=self.sam_prompt_embed_dim, #output dimension of image encoder 256
             image_embedding_size=(
                 self.sam_image_embedding_size,
                 self.sam_image_embedding_size,
@@ -320,7 +320,7 @@ class EfficientTAMBase(torch.nn.Module):
             sam_point_labels = -torch.ones(B, 1, dtype=torch.int32, device=device)
 
         # b) Handle mask prompts
-        if mask_inputs is not None:
+        if mask_inputs is not None: # 1 1 512 512 from add new mask
             # If mask_inputs is provided, downsize it into low-res mask input if needed
             # and feed it as a dense mask prompt into the SAM mask encoder
             assert len(mask_inputs.shape) == 4 and mask_inputs.shape[:2] == (B, 1)
@@ -339,22 +339,22 @@ class EfficientTAMBase(torch.nn.Module):
             # a learned `no_mask_embed` to indicate no mask input in this case).
             sam_mask_prompt = None
 
-        sparse_embeddings, dense_embeddings = self.sam_prompt_encoder(
-            points=(sam_point_coords, sam_point_labels),
+        sparse_embeddings, dense_embeddings = self.sam_prompt_encoder( # (1,num_prev&curr_points, 256) (1, 256, 32, 32)
+            points=(sam_point_coords, sam_point_labels), #((1,num_prev&curr_points,2), (1,num_prev&curr_points))
             boxes=None,
-            masks=sam_mask_prompt,
+            masks=sam_mask_prompt, #(1, 1, 128, 128)
         )
         (
-            low_res_multimasks,
-            ious,
-            sam_output_tokens,
-            object_score_logits,
+            low_res_multimasks, #[1,4,128,128]
+            ious, #[1,1,4]
+            sam_output_tokens, #[1, 4, 256]
+            object_score_logits, # [1,1,1]
         ) = self.sam_mask_decoder(
-            image_embeddings=backbone_features,
-            image_pe=self.sam_prompt_encoder.get_dense_pe(),
-            sparse_prompt_embeddings=sparse_embeddings,
+            image_embeddings=backbone_features, #[1, 256, 32, 32]
+            image_pe=self.sam_prompt_encoder.get_dense_pe(), #[1, 256, 32, 32]
+            sparse_prompt_embeddings=sparse_embeddings, #(1, num_prev&curr_points,256)
             dense_prompt_embeddings=dense_embeddings,
-            multimask_output=multimask_output,
+            multimask_output=multimask_output, # false if multiple points
             repeat_image=False,  # the image is already batched
             high_res_features=high_res_features,
         )
@@ -371,28 +371,28 @@ class EfficientTAMBase(torch.nn.Module):
 
         # convert masks from possibly bfloat16 (or float16) to float32
         # (older PyTorch versions before 2.1 don't support `interpolate` on bf16)
-        low_res_multimasks = low_res_multimasks.float()
-        high_res_multimasks = F.interpolate(
+        low_res_multimasks = low_res_multimasks.float() # 1, 4, 128, 128
+        high_res_multimasks = F.interpolate( #1, 4, 512, 512
             low_res_multimasks,
             size=(self.image_size, self.image_size),
             mode="bilinear",
             align_corners=False,
         )
 
-        sam_output_token = sam_output_tokens[:, 0]
+        sam_output_token = sam_output_tokens[:, 0] #[1,256]
         if multimask_output:
             # take the best mask prediction (with the highest IoU estimation)
             best_iou_inds = torch.argmax(ious, dim=-1)
             batch_inds = torch.arange(B, device=device)
-            low_res_masks = low_res_multimasks[batch_inds, best_iou_inds].unsqueeze(1)
-            high_res_masks = high_res_multimasks[batch_inds, best_iou_inds].unsqueeze(1)
+            low_res_masks = low_res_multimasks[batch_inds, best_iou_inds].unsqueeze(1) #[1,128,128]
+            high_res_masks = high_res_multimasks[batch_inds, best_iou_inds].unsqueeze(1) #[1,512,512]
             if sam_output_tokens.size(1) > 1:
-                sam_output_token = sam_output_tokens[batch_inds, best_iou_inds]
+                sam_output_token = sam_output_tokens[batch_inds, best_iou_inds] #[256]
         else:
             low_res_masks, high_res_masks = low_res_multimasks, high_res_multimasks
 
         # Extract object pointer from the SAM output token (with occlusion handling)
-        obj_ptr = self.obj_ptr_proj(sam_output_token)
+        obj_ptr = self.obj_ptr_proj(sam_output_token) #[1,256]
         if self.pred_obj_scores:
             # Allow *soft* no obj ptr, unlike for masks
             if self.soft_no_obj_ptr:
@@ -405,13 +405,13 @@ class EfficientTAMBase(torch.nn.Module):
             obj_ptr = obj_ptr + (1 - lambda_is_obj_appearing) * self.no_obj_ptr
 
         return (
-            low_res_multimasks,
-            high_res_multimasks,
-            ious,
-            low_res_masks,
-            high_res_masks,
-            obj_ptr,
-            object_score_logits,
+            low_res_multimasks, #[1,4,32,32]
+            high_res_multimasks, #[1,4,512,512]
+            ious, #[1,1,4]
+            low_res_masks,#[1,32,32]
+            high_res_masks,#[1,512,512]
+            obj_ptr, #[1,256]
+            object_score_logits,#[1,1,1]
         )
 
     def _use_mask_as_output(self, backbone_features, high_res_features, mask_inputs):
@@ -482,19 +482,21 @@ class EfficientTAMBase(torch.nn.Module):
 
     def _prepare_backbone_features(self, backbone_out):
         """Prepare and flatten visual features."""
+        #backbone_out has size n, 256, h/16, w/16]
         backbone_out = backbone_out.copy()
         assert len(backbone_out["backbone_fpn"]) == len(backbone_out["vision_pos_enc"])
         assert len(backbone_out["backbone_fpn"]) >= self.num_feature_levels
 
+        #num_feature_levels is 1 because its tam vit, not hiera, so only the last 1 feature and pos
+        #why [-n] when n is number of objects? right now backbone_out[0~n-1] is all same, doesn't matter
         feature_maps = backbone_out["backbone_fpn"][-self.num_feature_levels :]
         vision_pos_embeds = backbone_out["vision_pos_enc"][-self.num_feature_levels :]
 
-        feat_sizes = [(x.shape[-2], x.shape[-1]) for x in vision_pos_embeds]
-        # flatten NxCxHxW to HWxNxC
+        feat_sizes = [(x.shape[-2], x.shape[-1]) for x in vision_pos_embeds] #get h/16, w/16
         vision_feats = [x.flatten(2).permute(2, 0, 1) for x in feature_maps]
         vision_pos_embeds = [x.flatten(2).permute(2, 0, 1) for x in vision_pos_embeds]
 
-        return backbone_out, vision_feats, vision_pos_embeds, feat_sizes
+        return backbone_out, vision_feats, vision_pos_embeds, feat_sizes # 1 256 32 32, 1024 1 256, 1024 1 256, 1 32 32
 
     def _prepare_memory_conditioned_features(
         self,
@@ -506,6 +508,7 @@ class EfficientTAMBase(torch.nn.Module):
         output_dict,
         num_frames,
         track_in_reverse=False,  # tracking in reverse time order (for demo usage)
+        new_input = False
     ):
         """Fuse the current frame's visual feature map with previous memory."""
         B = current_vision_feats[-1].size(1)  # batch size on this frame
@@ -521,7 +524,7 @@ class EfficientTAMBase(torch.nn.Module):
         num_obj_ptr_tokens = 0
         tpos_sign_mul = -1 if track_in_reverse else 1
         # Step 1: condition the visual features of the current frame on previous memories
-        if not is_init_cond_frame:
+        if not is_init_cond_frame and not new_input:
             # Retrieve the memories encoded with the maskmem backbone
             to_cat_memory, to_cat_memory_pos_embed = [], []
             # Add conditioning frames's output first (all cond frames have t_pos=0 for
@@ -574,18 +577,18 @@ class EfficientTAMBase(torch.nn.Module):
                     continue  # skip padding frames
                 # "maskmem_features" might have been offloaded to CPU in demo use cases,
                 # so we load it back to GPU (it's a no-op if it's already on GPU).
-                feats = prev["maskmem_features"].to(device, non_blocking=True)
-                to_cat_memory.append(feats.flatten(2).permute(2, 0, 1))
+                feats = prev["maskmem_features"].to(device, non_blocking=True)  # 1 256 32 32
+                to_cat_memory.append(feats.flatten(2).permute(2, 0, 1)) # 1024 1 256
                 # Spatial positional encoding (it might have been offloaded to CPU in eval)
                 maskmem_enc = prev["maskmem_pos_enc"][-1].to(device)
-                maskmem_enc = maskmem_enc.flatten(2).permute(2, 0, 1)
+                maskmem_enc = maskmem_enc.flatten(2).permute(2, 0, 1) #1024 1 256
                 # Temporal positional encoding
                 maskmem_enc = (
-                    maskmem_enc + self.maskmem_tpos_enc[self.num_maskmem - t_pos - 1]
+                    maskmem_enc + self.maskmem_tpos_enc[self.num_maskmem - t_pos - 1]  #1024 1 256 + 1 1 256
                 )
-                to_cat_memory_pos_embed.append(maskmem_enc)
+                to_cat_memory_pos_embed.append(maskmem_enc) #1024 1 256
 
-            # Construct the list of past object pointers
+            # ------------------------------Construct the list of past object pointers---------------------------------
             if self.use_obj_ptrs_in_encoder:
                 max_obj_ptrs_in_encoder = min(num_frames, self.max_obj_ptrs_in_encoder)
                 # First add those object pointers from selected conditioning frames
@@ -622,9 +625,9 @@ class EfficientTAMBase(torch.nn.Module):
                         pos_and_ptrs.append((t_diff, out["obj_ptr"]))
                 # If we have at least one object pointer, add them to the across attention
                 if len(pos_and_ptrs) > 0:
-                    pos_list, ptrs_list = zip(*pos_and_ptrs)
+                    pos_list, ptrs_list = zip(*pos_and_ptrs) # cond_frame + max_obj_ptrs_in_encoder * [1] / cond_frame + max_obj_ptrs * [1, 256]
                     # stack object pointers along dim=0 into [ptr_seq_len, B, C] shape
-                    obj_ptrs = torch.stack(ptrs_list, dim=0)
+                    obj_ptrs = torch.stack(ptrs_list, dim=0) # (cond_frame + max_obj_ptrs, 1, 256)
                     # a temporal positional embedding based on how far each object pointer is from
                     # the current frame (sine embedding normalized by the max pointer num).
                     if self.add_tpos_enc_to_obj_ptrs:
@@ -641,7 +644,7 @@ class EfficientTAMBase(torch.nn.Module):
                     if self.mem_dim < C:
                         # split a pointer into (C // self.mem_dim) tokens for self.mem_dim < C
                         obj_ptrs = obj_ptrs.reshape(
-                            -1, B, C // self.mem_dim, self.mem_dim
+                            -1, B, C // self.mem_dim, self.mem_dim # divide into 4 tokens
                         )
                         obj_ptrs = obj_ptrs.permute(0, 2, 1, 3).flatten(0, 1)
                         obj_pos = obj_pos.repeat_interleave(C // self.mem_dim, dim=0)
@@ -655,7 +658,7 @@ class EfficientTAMBase(torch.nn.Module):
             if self.directly_add_no_mem_embed:
                 # directly add no-mem embedding (instead of using the transformer encoder)
                 pix_feat_with_mem = current_vision_feats[-1] + self.no_mem_embed
-                pix_feat_with_mem = pix_feat_with_mem.permute(1, 2, 0).view(B, C, H, W)
+                pix_feat_with_mem = pix_feat_with_mem.permute(1, 2, 0).view(B, C, H, W) # 1024 1 256 -> 1 256 32 32
                 return pix_feat_with_mem
 
             # Use a dummy token on the first frame (to avoid empty memory input to tranformer encoder)
@@ -677,12 +680,12 @@ class EfficientTAMBase(torch.nn.Module):
         pix_feat_with_mem = pix_feat_with_mem.permute(1, 2, 0).view(B, C, H, W)
         return pix_feat_with_mem
 
-    def _encode_new_memory(
+    def _encode_new_memory( # 1 256 32 32, 1024 1 256, 1024 1 256, 32 32
         self,
-        current_vision_feats,
-        feat_sizes,
-        pred_masks_high_res,
-        object_score_logits,
+        current_vision_feats, #1024 1 256
+        feat_sizes, # 1 32 32
+        pred_masks_high_res, # 1 512 512
+        object_score_logits, # 1 1 1
         is_mask_from_pts,
     ):
         """Encode the current image and its prediction into a memory feature."""
@@ -690,7 +693,7 @@ class EfficientTAMBase(torch.nn.Module):
         C = self.hidden_dim
         H, W = feat_sizes[-1]  # top-level (lowest-resolution) feature size
         # top-level feature, (HW)BC => BCHW
-        pix_feat = current_vision_feats[-1].permute(1, 2, 0).view(B, C, H, W)
+        pix_feat = current_vision_feats[-1].permute(1, 2, 0).view(B, C, H, W) #1, 256, 32, 32
         if self.non_overlap_masks_for_mem_enc and not self.training:
             # optionally, apply non-overlapping constraints to the masks (it's applied
             # in the batch dimension and should only be used during eval, where all
@@ -713,7 +716,7 @@ class EfficientTAMBase(torch.nn.Module):
         maskmem_out = self.memory_encoder(
             pix_feat, mask_for_mem, skip_mask_sigmoid=True  # sigmoid already applied
         )
-        maskmem_features = maskmem_out["vision_features"]
+        maskmem_features = maskmem_out["vision_features"] # 1, 64, 32, 32
         maskmem_pos_enc = maskmem_out["vision_pos_enc"]
         # add a no-object embedding to the spatial memory to indicate that the frame
         # is predicted to be occluded (i.e. no object is appearing in the frame)
@@ -740,6 +743,7 @@ class EfficientTAMBase(torch.nn.Module):
         num_frames,
         track_in_reverse,
         prev_sam_mask_logits,
+        new_input = False
     ):
         current_out = {"point_inputs": point_inputs, "mask_inputs": mask_inputs}
         # High-resolution feature maps for the SAM head, reshape (HW)BC => BCHW
@@ -769,6 +773,7 @@ class EfficientTAMBase(torch.nn.Module):
                 output_dict=output_dict,
                 num_frames=num_frames,
                 track_in_reverse=track_in_reverse,
+                new_input = new_input
             )
             # apply SAM-style segmentation head
             # here we might feed previously predicted low-res SAM mask logits into the SAM mask decoder,
@@ -833,6 +838,7 @@ class EfficientTAMBase(torch.nn.Module):
         run_mem_encoder=True,
         # The previously predicted SAM mask logits (which can be fed together with new clicks in demo).
         prev_sam_mask_logits=None,
+        new_input = False
     ):
         current_out, sam_outputs, _, _ = self._track_step(
             frame_idx,
@@ -846,6 +852,7 @@ class EfficientTAMBase(torch.nn.Module):
             num_frames,
             track_in_reverse,
             prev_sam_mask_logits,
+            new_input,
         )
 
         (
