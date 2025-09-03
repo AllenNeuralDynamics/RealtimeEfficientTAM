@@ -21,6 +21,15 @@ from efficient_track_anything.utils.misc import (
 import numpy as np
 import cv2
 
+def _to_device(t, device, *, non_blocking=None):
+    if t is None:
+        return None
+    if non_blocking is None:
+        non_blocking = (device.type == "cuda")
+    try:
+        return t.to(device, non_blocking=non_blocking)
+    except TypeError:
+        return t.to(device)
 
 class EfficientTAMCameraPredictor(EfficientTAMBase):
     """The predictor class to handle user interactions and manage inference states."""
@@ -35,6 +44,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         clear_non_cond_mem_around_input=False,
         # whether to also clear non-conditioning memory of the surrounding frames (only effective when `clear_non_cond_mem_around_input` is True).
         clear_non_cond_mem_for_multi_obj=False,
+        device = "cpu",
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -121,12 +131,15 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         self.condition_state["offload_state_to_cpu"] = offload_state_to_cpu
         # the original video height and width, used for resizing final output scores
 
+        """
         if torch.cuda.is_available():
             self.condition_state["device"] = torch.device("cuda")
         elif torch.mps.is_available():
             self.condition_state["device"] = torch.device("mps")
         else:
             raise RuntimeError("No CUDA or MPS device found, you should enable offload_state_to_cpu")
+        """
+        self.condition_state["device"] = self.device
 
         if offload_state_to_cpu:
             self.condition_state["storage_device"] = torch.device("cpu")
@@ -216,7 +229,13 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         normalize_coords=True,
         new_input = False, # clicks and reset will have new_input=True
     ):
-        """Add new points or reset"""
+        """
+        *** Add new points or reset ***
+        new_input=True makes that step act like a fresh, no-memory step.
+        The tracker ignores all past memories (both conditioning + non-conditioning, and object-pointer tokens) 
+        for that frame, runs the SAM head on the current prompts only, and then (if run_mem_encoder=True) 
+        re-encodes the newly predicted mask back into memory for future frames.
+        """
         if new_input: # we use self.object_of_interest when clearing memory of that object in _consolidate_temp_output_across_obj()
             self.object_of_interest = obj_id
         obj_idx = self._obj_id_to_idx(obj_id)
@@ -296,7 +315,8 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         #         prev_out = obj_output_dict["non_cond_frame_outputs"].get(frame_idx)
 
         if prev_out is not None and prev_out["pred_masks"] is not None:
-            prev_sam_mask_logits = prev_out["pred_masks"].cuda(non_blocking=True)
+            #prev_sam_mask_logits = prev_out["pred_masks"].cuda(non_blocking=True)
+            prev_sam_mask_logits = _to_device(prev_out["pred_masks"], self.device, non_blocking=True)
             # Clamp the scale of prev_sam_mask_logits to avoid rare numerical issues.
             prev_sam_mask_logits = torch.clamp(prev_sam_mask_logits, -32.0, 32.0)
         current_out, _ = self._run_single_frame_inference(
