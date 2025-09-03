@@ -140,3 +140,6 @@ dmypy.json
 
 # MacOs
 **/.DS_Store
+
+# Checkpoints files
+*.pt
