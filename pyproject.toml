@@ -11,6 +11,17 @@ dependencies = [
     "ruff>=0.9.9",
 ]
 
+<<<<<<< HEAD
+=======
+[project.optional-dependencies]
+docs = [
+    'Sphinx',
+    'sphinx-jinja',
+    'furo',
+    'docutils'
+]
+
+>>>>>>> docs
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
 
