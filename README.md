@@ -46,9 +46,5 @@ sphinx-apidoc -o docs/source/ src
 ```
 Then to create the documentation HTML files, run
 ```bash
-<<<<<<< HEAD
 sphinx-build -b html docs/source/ docs/build/html
-=======
-sphinx-build -b html docs/source/ docs/_build/html
->>>>>>> docs
 ```

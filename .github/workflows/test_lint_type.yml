@@ -6,13 +6,7 @@ on:
       - main
       - dev
     types: [opened, synchronize, reopened, ready_for_review]
-<<<<<<< HEAD
 jobs: 
-=======
-
-jobs: 
-  # Job 1: Linters and Type Checkers
->>>>>>> docs
   tests-lint-and-type-check: 
     runs-on: self-hosted-good
     env: 
@@ -35,8 +29,6 @@ jobs:
     - name: Type check with mypy 
       run: |
         uv run mypy src/mypackage --strict
-<<<<<<< HEAD
-=======
 
   # Job 2: Build Documentation for Pushes to Main
   build-docs:
@@ -60,4 +52,3 @@ jobs:
 
       - name: Build Sphinx HTML Documentation
         run: sphinx-build -b html docs/source docs/_build
->>>>>>> docs
