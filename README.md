@@ -1,21 +1,55 @@
-# aind-python-library-template
-[![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+# Real Time Efficient TAM
+
+### Getting Started
+- python >= 3.10
+
+### 1. Installation
+```bash
+git clone https://github.com/AllenNeuralDynamics/RealtimeEfficientTAM.git
+cd RealtimeEfficientTAM
+conda create -n rttam python=3.10
+conda activate rttam
+pip install -e .
+```
+### 2. Download Checkpoints
+```bash
+cd checkpoints
+./download_checkpoints.sh
+```
+or EfficientTAM checkpoints are available at the Hugging Face Space.
+
+### 3. Run 
+TBD
+
+---
+### License
+Efficient track anything checkpoints and codebase are licensed under Apache 2.0.
+Implementation of real-time EfficientTAM[📕Project]
+
+### 🙏 Acknowledgements 
+We gratefully acknowledge the contributions of the developers at Meta and GitHub for making these innovative projects available to the open-source community.
+This work builds upon the following projects:
+- [SAM2](https://github.com/facebookresearch/segment-anything-2)  
+- [EfficientTAM](https://github.com/facebookresearch/EfficientTAM)  
+- [segment-anything-2-real-time](https://github.com/Gy920/segment-anything-2-real-time)
 
 
-This is a repository template to quickly setup a python library project. This repository utilizes a tool called **uv** to handle all dependency and package management. For more information on this tool go to the [uv wiki](https://docs.astral.sh/uv/). 
+### 📖 Citation
 
-##  Getting Started
+If you use this repository in your research or applications, please cite **EfficientTAM**:
 
-- To use this template, click the green ``Use this template`` button and ``Create new repository``.
-- [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
+```bibtex
+@article{xiong2024efficienttam,
+  title={Efficient Track Anything},
+  author={Yunyang Xiong, Chong Zhou, Xiaoyu Xiang, Lemeng Wu, Chenchen Zhu, Zechun Liu, Saksham Suri, 
+          Balakrishnan Varadarajan, Ramya Akula, Forrest Iandola, Raghuraman Krishnamoorthi, 
+          Bilge Soran, Vikas Chandra},
+  journal={arXiv preprint arXiv:2411.18933},
+  year={2024}
+}
+```
 
-## Tools
-
-### Package/Project Management 
-
-This project utilizes [uv](https://docs.astral.sh/uv/) to handle installing dependencies as well as setting up environments for this project. It replaces tool like pip, poetry, virtualenv, and conda. 
-
-This project also uses [tox](https://tox.wiki/en/latest/index.html) for orchestrating multiple testing environments that mimics the github actions CI/CD so that you can test the workflows locally on your machine before pushing changes. 
+---
 
 ### Code Quality Check
 
