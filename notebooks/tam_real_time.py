@@ -1,17 +1,33 @@
-from pathlib import Path
-import contextlib
 import cv2
+import contextlib
+from pathlib import Path
 import torch
-import time
 import numpy as np
+import time
 from efficient_track_anything.build_efficienttam import build_efficienttam_camera_predictor
 
-tam_checkpoint = "../checkpoints/efficienttam_ti_512x512.pt"
-model_cfg = "configs/sam2.1/sam2.1_hiera_t.yaml"
+
+# --- Model init (unchanged) ---
+# tam_real_time.py
+
+HERE = Path(__file__).resolve().parent          # .../RealtimeEfficientTAM/RealtimeEfficientTAM/notebooks
+REPO = HERE.parent                              # repo root (one level up from notebooks)
+
+tam_checkpoint = (REPO / "checkpoints" / "efficienttam_ti_512x512.pt")
+model_cfg     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_ti_512x512.yaml")
+
+print("ckpt:", tam_checkpoint)
+print("cfg :", model_cfg)
+
+if not tam_checkpoint.is_file():
+    raise FileNotFoundError(f"Checkpoint not found: {tam_checkpoint}")
+if not model_cfg.is_file():
+    raise FileNotFoundError(f"Config not found: {model_cfg}")
 
 def get_device():
     if torch.cuda.is_available():
         device = torch.device("cuda")
+        # Enable TF32 on Ampere+ for speed
         try:
             if torch.cuda.get_device_properties(0).major >= 8:
                 torch.backends.cuda.matmul.allow_tf32 = True
@@ -25,7 +41,6 @@ def get_device():
         device = torch.device("cpu")
     print(f"using device: {device}")
     return device
-
 
 def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float = 0.35, color=(0, 255, 0)) -> np.ndarray:
     """
@@ -45,35 +60,29 @@ def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float
     blended[m > 0] = (1 - alpha) * blended[m > 0] + alpha * color_layer[m > 0]
     return blended.astype(np.uint8)
 
-
 device = get_device()
-print("Building SAM2 model...")
-sam2_model = build_sam2(model_cfg, sam2_checkpoint, device=device)
-print("SAM2 model built successfully.")
-predictor = SAM2CameraPredictor(sam2_model, device=device)
+print(tam_checkpoint)
+predictor = build_efficienttam_camera_predictor(str(model_cfg), str(tam_checkpoint), device=device)
+print("TAM model built successfully.")
 
 # Input image folder
-IMG_DIR = Path("./images/1200_900/3")
+#IMG_DIR = Path("./images/1200_900/2")
+IMG_DIR = REPO / "notebooks" / "images" / "1200_900" / "2"
 image_paths = sorted([p for p in IMG_DIR.glob("*.jpg")] + [p for p in IMG_DIR.glob("*.png")])
 if not image_paths:
     raise RuntimeError(f"No images found in {IMG_DIR}")
-
 # 👇 adjust point to something inside your object
 points = np.array([[980, 759]], dtype=np.float32) # 1200_900/2
-points = np.array([[910, 740]], dtype=np.float32) # 1200_900/3
-
+#points = np.array([[910, 740]], dtype=np.float32) # 1200_900/3
 labels = np.array([1], dtype=np.int32)
 
 #Output folder
-out_dir = IMG_DIR / "output"
+out_dir = IMG_DIR / "output_tam"
 out_dir.mkdir(parents=True, exist_ok=True)
 video_segments = {}
 
-print("Starting image sequence processing...")
-
 if_init = False
 frame_idx = 0
-
 amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16) if device.type == "cuda" else contextlib.nullcontext()
 
 with torch.inference_mode(), amp_ctx:
@@ -83,15 +92,13 @@ with torch.inference_mode(), amp_ctx:
             print(f"Skipping unreadable file: {img_path}")
             continue
 
-        
-
         if not if_init:
             print("Loading first frame...")
             predictor.load_first_frame(frame)
 
             obj_id = 0
 
-            predictor.add_new_prompt(
+            predictor.add_new_prompts(
                 frame_idx=frame_idx,
                 obj_id=obj_id,
                 points=points,
@@ -132,7 +139,3 @@ with torch.inference_mode(), amp_ctx:
 
                 # save (mask optional; overlay is the main visualization)
                 cv2.imwrite(str(out_ovly_path), overlay)
-
-
-
-

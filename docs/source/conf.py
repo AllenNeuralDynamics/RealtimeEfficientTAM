@@ -14,7 +14,7 @@ project_root = Path(__file__).resolve().parents[2]
 src_path = project_root / "src"
 sys.path.insert(0, str(src_path))
 
-from mypackage import __version__ as package_version
+from realtime_efficient_tam import __version__ as package_version
 
 INSTITUTE_NAME = "Allen Institute for Neural Dynamics"
 current_year = date.today().year
