@@ -5,7 +5,6 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "realtime_efficient_tam"
-version = "0.1.0"
 description = "Realtime Efficient Track Anything"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -86,3 +85,7 @@ efficient_track_anything = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
+
+
+[tool.setuptools.dynamic]
+version = {attr = "efficient_track_anything.__version__"}
