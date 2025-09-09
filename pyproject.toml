@@ -7,6 +7,7 @@ build-backend = "setuptools.build_meta"
 name = "realtime_efficient_tam"
 description = "Realtime Efficient Track Anything"
 readme = "README.md"
+dynamic = ["version"]
 requires-python = ">=3.10"
 authors = [
   { name = "Hanna Lee", email = "hanna.lee@alleninstitute.org" }
@@ -85,7 +86,6 @@ efficient_track_anything = [
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
-
 
 [tool.setuptools.dynamic]
 version = {attr = "efficient_track_anything.__version__"}
