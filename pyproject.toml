@@ -4,9 +4,9 @@ requires = ["setuptools>=69", "wheel", "torch>=2.5.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "efficient_track_anything"
-version = "1.0"
-description = "Efficient Track Anything"
+name = "realtime_efficient_tam"
+version = "0.1.0"
+description = "Realtime Efficient Track Anything"
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
