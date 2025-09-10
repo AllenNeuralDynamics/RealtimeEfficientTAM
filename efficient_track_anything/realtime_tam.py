@@ -54,7 +54,6 @@ def build_predictor(
 def start(
     state: TAMState,
     first_frame: np.ndarray,
-    *,
     points: np.ndarray = np.array([[0, 0]], dtype=np.float32),
     obj_id: int = 0,
     labels: np.ndarray = np.array([1], dtype=np.int32),
@@ -64,18 +63,18 @@ def start(
     Initialize the sequence on the first frame with prompts.
     Must be called once before tracking.
     """
-    print("**** Starting new sequence...", file=sys.stderr)
+    print("**** Starting new sequence...")
     if state.initialized:
         return
     state.predictor.load_first_frame(first_frame)
-    print("**** Loaded first frame...", file=sys.stderr)
+    print("**** Loaded first frame...")
     state.predictor.add_new_prompts(
         frame_idx=frame_idx,
         obj_id=obj_id,
         points=points,
         labels=labels,
     )
-    print("**** Add new promts...", file=sys.stderr)
+    print("**** Add new prompts...")
     state.initialized = True
     state.frame_idx = frame_idx
     state.obj_id = obj_id

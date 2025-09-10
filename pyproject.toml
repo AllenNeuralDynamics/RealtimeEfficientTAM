@@ -84,8 +84,5 @@ efficient_track_anything = [
   "**/*.md",
 ]
 
-[project.scripts]
-demo = "efficient_track_anything.demo:demo_sequence"
-
 [tool.setuptools.dynamic]
 version = {attr = "efficient_track_anything.__version__"}
