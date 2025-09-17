@@ -114,6 +114,8 @@ def build_efficienttam_video_predictor(
             "++model.compile_image_encoder=True",  # Let efficienttam_base handle this
         ]
 
+    fill_hole_area = 8 if torch.cuda.is_available() else 0
+
     if apply_postprocessing:
         hydra_overrides_extra = hydra_overrides_extra.copy()
         hydra_overrides_extra += [
@@ -124,7 +126,7 @@ def build_efficienttam_video_predictor(
             # the sigmoid mask logits on interacted frames with clicks in the memory encoder so that the encoded masks are exactly as what users see from clicking
             "++model.binarize_mask_from_pts_for_mem_enc=true",
             # fill small holes in the low-res masks up to `fill_hole_area` (before resizing them to the original video resolution)
-            "++model.fill_hole_area=8",
+            f"++model.fill_hole_area={fill_hole_area}",
         ]
     hydra_overrides.extend(hydra_overrides_extra)
 
@@ -197,6 +199,8 @@ def build_efficienttam_camera_predictor(
             "++model.compile_image_encoder=True",  # Let efficienttam_base handle this
         ]
 
+    fill_hole_area = 8 if torch.cuda.is_available() else 0
+
     if apply_postprocessing:
         hydra_overrides_extra = hydra_overrides_extra.copy()
         hydra_overrides_extra += [
@@ -207,7 +211,7 @@ def build_efficienttam_camera_predictor(
             # the sigmoid mask logits on interacted frames with clicks in the memory encoder so that the encoded masks are exactly as what users see from clicking
             "++model.binarize_mask_from_pts_for_mem_enc=true",
             # fill small holes in the low-res masks up to `fill_hole_area` (before resizing them to the original video resolution)
-            "++model.fill_hole_area=8",
+            f"++model.fill_hole_area={fill_hole_area}",
         ]
     hydra_overrides.extend(hydra_overrides_extra)
 
