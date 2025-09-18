@@ -123,6 +123,41 @@ def _json_reply(obj: dict):
     sys.stdout.write(json.dumps(obj) + "\n")
     sys.stdout.flush()
 
+def _to_np_xy(pts):
+    """
+    Accepts: (N,2) array-like or a single (2,) pair.
+    Returns: (N,2) float32 numpy array.
+    """
+    arr = np.asarray(pts, dtype=np.float32)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, 2)
+    return arr
+
+def converter_pts_after_crop(pts, left, top):
+    """
+    Convert full-image XY points to crop-relative XY by subtracting the crop origin.
+    pts: (N,2) or (2,) in global image coordinates
+    left, top: crop's top-left corner in the global image
+    """
+    pts = _to_np_xy(pts).copy()
+    pts[:, 0] -= float(left)
+    pts[:, 1] -= float(top)
+    return pts
+
+def converter_pts_after_resize(pts, src_wh, dst_wh):
+    """
+    Scale crop-relative XY points to the resized image coordinates.
+    src_wh: (src_w, src_h) of the crop BEFORE resize
+    dst_wh: (dst_w, dst_h) of the resized local image
+    """
+    pts = _to_np_xy(pts).copy()
+    src_w, src_h = float(src_wh[0]), float(src_wh[1])
+    dst_w, dst_h = float(dst_wh[0]), float(dst_wh[1])
+    sx = dst_w / src_w
+    sy = dst_h / src_h
+    pts[:, 0] *= sx
+    pts[:, 1] *= sy
+    return pts
 
 def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float = 0.35, color=(0, 255, 0)) -> np.ndarray:
     overlay = frame_bgr.copy()
@@ -135,3 +170,62 @@ def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float
     blended = overlay.astype(np.float32)
     blended[m > 0] = (1 - alpha) * blended[m > 0] + alpha * color_layer[m > 0]
     return blended.astype(np.uint8)
+
+def mask_to_bbox_xyxy(mask_u8: np.ndarray, img_shape=None, pad: int = 10):
+    """
+    Tight bbox from a uint8 mask considering ALL foreground pixels.
+    Returns (left, top, right, bottom) with right/bottom EXCLUSIVE: [x1, y1, x2, y2).
+    If img_shape is None, uses mask shape for clamping.
+    """
+    # Ensure uint8, normalize to binary {0,1}
+    if mask_u8.dtype != np.uint8:
+        mask_u8 = mask_u8.astype(np.uint8)
+    mask_bin = (mask_u8 > 0).astype(np.uint8)
+
+    # Empty mask -> None
+    if cv2.countNonZero(mask_bin) == 0:
+        return None
+
+    # Tight bbox over all foreground pixels
+    ys, xs = np.where(mask_bin > 0)
+    y1, y2 = int(ys.min()), int(ys.max())
+    x1, x2 = int(xs.min()), int(xs.max())
+
+    # Apply padding
+    x1 -= pad; y1 -= pad; x2 += pad; y2 += pad
+
+    # Clamp to image bounds
+    if img_shape is None:
+        h, w = mask_u8.shape[:2]
+    else:
+        h, w = img_shape[:2]
+    x1 = max(0, x1); y1 = max(0, y1)
+    x2 = min(w, x2); y2 = min(h, y2)
+
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    return (x1, y1, x2, y2)  # (left, top, right, bottom), right/bottom are EXCLUSIVE
+
+def lift_local_mask_to_global(mask_local_u8, left, top, right, bottom, global_hw):
+    """
+    Take a local (resized-crop) mask and paste it back into a full-frame mask.
+    - mask_local_u8: (h_local, w_local) uint8 mask (0/255)
+    - [left, top, right, bottom]: crop bbox in global coords (exclusive right/bottom)
+    - global_hw: (H, W) of the original image
+    Returns: (H, W) uint8 mask with the local mask placed into the bbox region.
+    """
+    H, W = int(global_hw[0]), int(global_hw[1])
+    out = np.zeros((H, W), dtype=mask_local_u8.dtype)
+
+    crop_w = int(right - left)
+    crop_h = int(bottom - top)
+    if crop_w <= 0 or crop_h <= 0:
+        return out  # empty (defensive)
+
+    # Resize local mask back to the crop size
+    local_up = cv2.resize(mask_local_u8, (crop_w, crop_h), interpolation=cv2.INTER_NEAREST)
+
+    # Paste into full-frame
+    out[top:bottom, left:right] = local_up
+    return out
