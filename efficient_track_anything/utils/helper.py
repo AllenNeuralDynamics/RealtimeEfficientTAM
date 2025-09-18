@@ -21,6 +21,30 @@ REPO = HERE.parent.parent                           # repo root (one level up fr
 DEFAULT_TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_ti_512x512.pt")
 DEFAULT_MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_ti_512x512.yaml")
 
+def find_matching_cfg(ckpt_path: Path) -> Optional[Path]:
+    """
+    Given a checkpoint path, return the corresponding model config path if it exists.
+
+    Args:
+        ckpt_path (str | Path): Path to the checkpoint file.
+
+    Returns:
+        Optional[Path]: Path to the matching YAML config, or None if not found.
+    """
+    if not ckpt_path.is_file():
+        return None
+
+    name = ckpt_path.stem.lower()  # filename without extension
+    model_config_path = (
+        REPO
+        / "efficient_track_anything"
+        / "configs"
+        / "efficienttam"
+        / f"{name}.yaml"
+    )
+
+    return model_config_path if model_config_path.is_file() else None
+
 
 # ----------------------------
 # Utilities

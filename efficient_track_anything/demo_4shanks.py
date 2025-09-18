@@ -12,7 +12,8 @@ from efficient_track_anything.utils.helper import (read_frame,
                                                    mask_to_bbox_xyxy,
                                                    converter_pts_after_crop,
                                                    converter_pts_after_resize,
-                                                   lift_local_mask_to_global)
+                                                   lift_local_mask_to_global,
+                                                   find_matching_cfg)
 
 REPO = Path(__file__).resolve().parent.parent
 IMG_DIR = REPO / "notebooks" / "images" / "1200_900" / "3"
@@ -27,10 +28,10 @@ points = np.array([[909, 709]], dtype=np.float32) # 1200_900/3 # 4th shank
 labels = np.array([1], dtype=np.int32)
 h, w = 512, 512
 
-#TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_s_512x512.pt")
-#MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_s_512x512.yaml")
-TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_ti_512x512.pt")
-MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_ti_512x512.yaml")
+TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_s_512x512.pt")
+MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_s_512x512.yaml")
+#TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_ti_512x512.pt")
+#MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_ti_512x512.yaml")
 
 
 def track_local(mask_global, img, predictor_local, pt_global=None, pad=20):
@@ -48,7 +49,7 @@ def track_local(mask_global, img, predictor_local, pt_global=None, pad=20):
         # --- Convert points: global -> crop-relative -> resized (local) ---
         pt_crop = converter_pts_after_crop(pt_global, left=left, top=top)                 # to crop coords
         pt_local = converter_pts_after_resize(pt_crop, src_wh=(crop_w, crop_h), dst_wh=(w, h))  # to local coords
-        start(predictor_local, local_img, points=pt_local, get_single_connected_component=True)
+        start(predictor_local, local_img, points=pt_local, get_single_connected_component=False)
 
     _, out_mask_logits = track(predictor_local, local_img)
     mask_local = masks_to_uint8_batch(out_mask_logits)
