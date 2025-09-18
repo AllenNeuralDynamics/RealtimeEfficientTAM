@@ -12,6 +12,7 @@ import numpy as np
 import torch
 from PIL import Image
 from tqdm import tqdm
+import cv2
 
 
 def get_sdpa_settings():
@@ -58,9 +59,53 @@ def get_connected_components(mask):
     - counts: A tensor of shape (N, 1, H, W) containing the area of the connected
               components for foreground pixels and 0 for background pixels.
     """
+    # print call stack for easier debugging
     from efficient_track_anything import _C
 
     return _C.get_connected_componnets(mask.to(torch.uint8).contiguous())
+
+
+def get_connected_components_cpu(mask: torch.Tensor, connectivity: int = 8):
+    """
+    Get the connected components of binary masks (CPU).
+
+    Args:
+        mask: (N, 1, H, W) tensor. Foreground > 0, background == 0 (dtype can be bool/uint8/float).
+        connectivity: 4 or 8 (default 8).
+
+    Returns:
+        labels: (N, 1, H, W) int32 tensor, component ids (0 = background).
+        counts: (N, 1, H, W) int32 tensor, per-pixel area of its component (0 on background).
+    """
+    assert mask.ndim == 4 and mask.shape[1] == 1, "mask must be (N,1,H,W)"
+    assert connectivity in (4, 8), "connectivity must be 4 or 8"
+
+    dev = mask.device
+    N, _, H, W = mask.shape
+
+    # Binary {0,1} on CPU for OpenCV
+    mask_bin = (mask > 0).to(torch.uint8).cpu().numpy()  # (N,1,H,W)
+    labels_np = np.zeros((N, 1, H, W), dtype=np.int32)
+    counts_np = np.zeros((N, 1, H, W), dtype=np.int32)
+
+    for i in range(N):
+        # OpenCV expects HxW uint8; nonzero = foreground
+        img = (mask_bin[i, 0] * 255).astype(np.uint8)
+
+        num, lbl, stats, _ = cv2.connectedComponentsWithStats(img, connectivity=connectivity)
+        # lbl: HxW int32 in [0, num-1], where 0 is background
+
+        labels_np[i, 0] = lbl
+
+        # stats[:, cv2.CC_STAT_AREA] -> area per label id, aligned with lbl indices
+        areas = stats[:, cv2.CC_STAT_AREA].astype(np.int32)  # shape: (num,)
+        area_map = areas[lbl]  # HxW, area of the component each pixel belongs to
+        area_map[lbl == 0] = 0  # zero out background
+        counts_np[i, 0] = area_map
+
+    labels = torch.from_numpy(labels_np).to(dev)
+    counts = torch.from_numpy(counts_np).to(dev)
+    return labels, counts
 
 
 def mask_to_box(masks: torch.Tensor):
@@ -334,6 +379,124 @@ def fill_holes_in_mask_scores(mask, max_area):
         mask = input_mask
 
     return mask
+
+
+def get_connected_component_on_pt(
+    mask: torch.Tensor,
+    pts,
+    *,
+    threshold: float = 0.0,      # use 0.5 if your mask is probabilities
+    connectivity: int = 8,
+    fallback_to_first: bool = True,
+    snap_to_fg: bool = True,
+    max_search_radius: int = 3,
+    preserve_values: bool = True,  # keep original scores inside the chosen component
+) -> torch.Tensor:
+    """
+    Keep only the connected component that contains the seed point (per batch item).
+
+    mask: (N,1,H,W) float/bool/uint8; values > threshold treated as foreground.
+    pts:  (x,y), or list[(x,y)] of len N, or torch tensors (N,2)/(N,1,2)/(N,K,2),
+          or dict {'point_coords': (N,K,2), 'point_labels': (N,K)} (SAM/SAM2).
+    """
+    assert mask.ndim == 4 and mask.shape[1] == 1, "mask must be (N,1,H,W)"
+    N, _, H, W = mask.shape
+    device, dtype = mask.device, mask.dtype
+
+    # -------- normalize one (x,y) seed per batch --------
+    def _seeds_per_batch(p):
+        if isinstance(p, (list, tuple)) and len(p) == 2 and not isinstance(p[0], (list, tuple, torch.Tensor)):
+            return [tuple(map(float, p))] * N
+        if isinstance(p, (list, tuple)) and len(p) == N:
+            out = []
+            for q in p:
+                if torch.is_tensor(q):
+                    q = q.detach().cpu().flatten()
+                    out.append((float(q[0]), float(q[1])))
+                else:
+                    x, y = q
+                    out.append((float(x), float(y)))
+            return out
+        if torch.is_tensor(p):
+            t = p.detach().cpu()
+            if t.ndim == 1 and t.numel() == 2:               # (2,)
+                return [(float(t[0]), float(t[1]))] * N
+            if t.ndim == 2 and t.shape[-1] == 2:             # (N,2)
+                m = min(N, t.shape[0])
+                return [(float(t[i,0]), float(t[i,1])) for i in range(m)] + [(None,None)]*(N-m)
+            if t.ndim == 3 and t.shape[-1] == 2:             # (N,K,2) -> first
+                m = min(N, t.shape[0])
+                return [(float(t[i,0,0]), float(t[i,0,1])) for i in range(m)] + [(None,None)]*(N-m)
+        if isinstance(p, dict) and 'point_coords' in p:       # SAM/SAM2
+            C = p['point_coords']
+            L = p.get('point_labels', None)
+            C = C.detach().cpu() if torch.is_tensor(C) else torch.as_tensor(C)
+            pts_out = []
+            for i in range(min(N, C.shape[0])):
+                idx = None
+                if L is not None:
+                    Li = L[i]
+                    Li = Li.detach().cpu() if torch.is_tensor(Li) else torch.as_tensor(Li)
+                    pos = torch.where(Li > 0)[0]  # positive labels
+                    if len(pos) > 0:
+                        idx = int(pos[0])
+                if idx is None:
+                    if fallback_to_first and C.shape[1] > 0:
+                        idx = 0
+                    else:
+                        pts_out.append((None, None)); continue
+                pts_out.append((float(C[i, idx, 0]), float(C[i, idx, 1])))
+            if len(pts_out) < N:
+                pts_out += [(None, None)] * (N - len(pts_out))
+            return pts_out
+        return [(None, None)] * N
+
+    seeds = _seeds_per_batch(pts)
+
+    # -------- binarize BEFORE CC --------
+    mask_bin = (mask > threshold)
+
+    # -------- optional snap: if seed on background, move to nearest FG within radius --------
+    def _snap_seed(i, x, y):
+        if x is None or y is None: return None
+        xi, yi = int(round(x)), int(round(y))
+        if 0 <= xi < W and 0 <= yi < H and bool(mask_bin[i, 0, yi, xi]):
+            return (xi, yi)
+        if not snap_to_fg: return None
+        for r in range(1, max_search_radius + 1):
+            x0, x1 = max(0, xi - r), min(W - 1, xi + r)
+            y0, y1 = max(0, yi - r), min(H - 1, yi + r)
+            region = mask_bin[i, 0, y0:y1+1, x0:x1+1]
+            nz = torch.nonzero(region, as_tuple=False)
+            if nz.numel():
+                dy, dx = nz[0].tolist()
+                return (x0 + int(dx), y0 + int(dy))
+        return None
+
+    snapped = [_snap_seed(i, *seeds[i]) for i in range(N)]
+
+    # -------- connected components (labels: 0 bg, 1..K components) --------
+    try:
+        labels, _ = get_connected_components(mask_bin.to(torch.uint8).contiguous())
+    except Exception:
+        labels, _ = get_connected_components_cpu(mask_bin, connectivity=connectivity)
+    labels = labels.to(device)
+
+    comp_bool = torch.zeros_like(mask_bin, dtype=torch.bool, device=device)
+    for i, s in enumerate(snapped):
+        if s is None: continue
+        xi, yi = s
+        if not (0 <= xi < W and 0 <= yi < H): continue
+        comp_id = int(labels[i, 0, yi, xi])
+        if comp_id != 0:
+            comp_bool[i, 0] = (labels[i, 0] == comp_id)
+
+    # If nothing selected, return zeros or original (choose zeros to enforce “one coin or none”)
+    if not comp_bool.any():
+        return torch.zeros_like(mask)
+
+    # Keep only the chosen component
+    return (mask * comp_bool.to(dtype)) if preserve_values else comp_bool.to(dtype)
 
 
 def concat_points(old_point_inputs, new_points, new_labels):
