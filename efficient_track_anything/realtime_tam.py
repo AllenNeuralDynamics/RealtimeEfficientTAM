@@ -45,7 +45,7 @@ def build_predictor(
     """
     device = device or get_device()
     predictor = build_efficienttam_camera_predictor(model_cfg, tam_checkpoint, device=device)
-    print("TAM model built successfully.", file=sys.stderr)
+    print("[Realtime Efficient TAM] TAM model built successfully.")
     return TAMState(predictor=predictor, device=device)
 
 # ----------------------------
@@ -58,29 +58,31 @@ def start(
     obj_id: int = 0,
     labels: np.ndarray = np.array([1], dtype=np.int32),
     frame_idx: int = 0,
+    get_single_connected_component: bool = False,
 ) -> None:
     """
     Initialize the sequence on the first frame with prompts.
     Must be called once before tracking.
     """
-    print("**** Starting new sequence...")
+    print("[Realtime Efficient TAM] Starting new sequence...")
     if state.initialized:
         return
     state.predictor.load_first_frame(first_frame)
-    print("**** Loaded first frame...")
+    print("[Realtime Efficient TAM] Loaded first frame...")
     state.predictor.add_new_prompts(
         frame_idx=frame_idx,
         obj_id=obj_id,
         points=points,
         labels=labels,
+        get_single_connected_component=get_single_connected_component,
     )
-    print("**** Add new prompts...")
+    print("[Realtime Efficient TAM] Added new prompts...")
     state.initialized = True
     state.frame_idx = frame_idx
     state.obj_id = obj_id
 
 def track(state: TAMState, frame: np.ndarray) -> Tuple[List[int], torch.Tensor]:
-    print(f"**** Tracking frame {state.frame_idx+1}...", file=sys.stderr)
+    print(f"[Realtime Efficient TAM] Tracking frame {state.frame_idx+1}...")
     if not state.initialized:
         raise RuntimeError("Call start(...) once before track(...).")
     amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16) if state.device.type == "cuda" else contextlib.nullcontext()
