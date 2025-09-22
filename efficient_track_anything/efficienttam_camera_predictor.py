@@ -16,7 +16,6 @@ from efficient_track_anything.modeling.efficienttam_base import (
 from efficient_track_anything.utils.misc import (
     concat_points,
     fill_holes_in_mask_scores,
-    get_connected_component_on_pt,
     load_video_frames,
 )
 import numpy as np
@@ -228,7 +227,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         clear_old_points=True,
         normalize_coords=True,
         new_input = False, # clicks and reset will have new_input=True
-        get_single_connected_component=False, # whether to extract the largest connected component from the predicted mask
     ):
         """
         *** Add new points or reset ***
@@ -334,8 +332,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             # them into memory.
             run_mem_encoder=False,
             prev_sam_mask_logits=prev_sam_mask_logits,
-            new_input = new_input,
-            get_single_connected_component=get_single_connected_component
+            new_input = new_input
         )
         # Add the output to the output dict (to be used as future memory)
         obj_temp_output_dict[storage_key][frame_idx] = current_out
@@ -920,7 +917,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         run_mem_encoder,
         prev_sam_mask_logits=None,
         new_input=False,
-        get_single_connected_component=False
     ):
         """Run tracking on a single frame based on current inputs and previous memory."""
         # Retrieve correct image features
@@ -961,8 +957,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             pred_masks_gpu = fill_holes_in_mask_scores(
                 pred_masks_gpu, self.fill_hole_area
             )
-        if get_single_connected_component:
-            pred_masks_gpu = get_connected_component_on_pt(pred_masks_gpu, point_inputs)
         pred_masks = pred_masks_gpu.to(storage_device, non_blocking=True)
         # "maskmem_pos_enc" is the same across frames, so we only need to store one copy of it
         maskmem_pos_enc = self._get_maskmem_pos_enc(current_out)

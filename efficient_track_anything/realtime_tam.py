@@ -60,7 +60,6 @@ def start(
     obj_id: int = 0,
     labels: np.ndarray = np.array([1], dtype=np.int32),
     frame_idx: int = 0,
-    get_single_connected_component: bool = False,
 ) -> None:
     """
     Initialize the sequence on the first frame with prompts.
@@ -76,7 +75,6 @@ def start(
         obj_id=obj_id,
         points=points,
         labels=labels,
-        get_single_connected_component=get_single_connected_component,
     )
     print("[Realtime Efficient TAM] Added new prompts...")
     state.initialized = True

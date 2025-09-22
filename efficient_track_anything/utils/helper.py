@@ -45,7 +45,6 @@ def find_matching_cfg(ckpt_path: Path) -> Optional[Path]:
 
     return model_config_path if model_config_path.is_file() else None
 
-
 # ----------------------------
 # Utilities
 # ----------------------------
