@@ -9,34 +9,37 @@ from efficient_track_anything.utils.helper import read_frame, masks_to_uint8_bat
 
 REPO = Path(__file__).resolve().parent.parent
 IMG_DIR = REPO / "notebooks" / "images" / "1200_900" / "3"
-FIRST_FRAME_PATH = IMG_DIR / "3_frame_000000.jpg"
-SECOND_FRAME_PATH = IMG_DIR / "3_frame_000093.jpg"
-THIRD_FRAME_PATH = IMG_DIR / "3_frame_000279.jpg"
-points = np.array([[910, 740]], dtype=np.float32) # 1200_900/3
-#labels = np.array([1], dtype=np.int32)
-
+FIRST_FRAME_PATH = IMG_DIR / "1.jpg"
+SECOND_FRAME_PATH = IMG_DIR / "2.jpg"
+THIRD_FRAME_PATH = IMG_DIR / "3.jpg"
+points = np.array([[910, 740], [902,692], [775,518]], dtype=np.float32) # 1200_900/3
+labels = np.array([1, 1, 0], dtype=np.int32)
 
 def demo_sequence():
     print("Building model...")
     predictor = build_predictor()
-    
-    print("Loading first frame and starting tracking...")
     img = read_frame(FIRST_FRAME_PATH)
-    start(predictor, img, points=points)
+    predictor.predictor.load_first_frame(img)
 
-    print("Tracking subsequent frames...")
+    _, out_mask_logits = start(predictor, img, points=points, labels=labels)
+    mask = masks_to_uint8_batch(out_mask_logits)
+    overlay = overlay_mask_bgr(img, mask[0], alpha=0.3)
+    save_imgs(overlay, out_dir=IMG_DIR, filename = "1_output")
+    print("Saved masks for first frame to " + str(IMG_DIR / "1_output.png"))
+
     img = read_frame(SECOND_FRAME_PATH)
     _, out_mask_logits = track(predictor, img)
     mask = masks_to_uint8_batch(out_mask_logits)
-    overlay = overlay_mask_bgr(img, mask[0], alpha=0.5)
-    save_imgs(overlay, out_dir=IMG_DIR, filename = "3_frame_000093_output")
-    print("Saved masks for second frame to " + str(IMG_DIR / "3_frame_000093_output.png"))
+    overlay = overlay_mask_bgr(img, mask[0], alpha=0.4)
+    save_imgs(overlay, out_dir=IMG_DIR, filename = "2_output")
+    print("Saved masks for second frame to " + str(IMG_DIR / "2_output.png"))
 
     img = read_frame(THIRD_FRAME_PATH)
     _, out_mask_logits = track(predictor, img)
     mask = masks_to_uint8_batch(out_mask_logits)
-    overlay = overlay_mask_bgr(img, mask[0], alpha=0.5)
-    save_imgs(overlay, out_dir=IMG_DIR, filename = "3_frame_000279_output")
-    print("Saved masks for third frame to " + str(IMG_DIR / "3_frame_000279_output.png"))
+    overlay = overlay_mask_bgr(img, mask[0], alpha=0.4)
+    save_imgs(overlay, out_dir=IMG_DIR, filename = "3_output")
+    print("Saved masks for third frame to " + str(IMG_DIR / "3_output.png"))
+
 
 demo_sequence()

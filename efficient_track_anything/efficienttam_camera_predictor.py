@@ -723,7 +723,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
     ):  
         self.frame_idx += 1
         self.condition_state["num_frames"] += 1
-        print("frame ", self.frame_idx)
         if not self.condition_state["tracking_has_started"]:
             self.propagate_in_video_preflight()
 
@@ -740,7 +739,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             current_vision_pos_embeds,
             feat_sizes,
         ) = self._get_feature(img, batch_size)
-        print("1", torch.cuda.memory_allocated() / 1024**2, "MB")
+        #print("1", torch.cuda.memory_allocated() / 1024**2, "MB")
 
         current_out = self.track_step(
             frame_idx=self.frame_idx,
@@ -756,7 +755,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             run_mem_encoder=True,
             prev_sam_mask_logits=None,
         )
-        print("2", torch.cuda.memory_allocated() / 1024**2, "MB")
+        #print("2", torch.cuda.memory_allocated() / 1024**2, "MB")
         # optionally offload the output to CPU memory to save GPU space
         storage_device = self.condition_state["storage_device"]
         maskmem_features = current_out["maskmem_features"]
@@ -785,11 +784,11 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         }
         self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
         output_dict["non_cond_frame_outputs"][self.frame_idx] = current_out
-        print("3", torch.cuda.memory_allocated() / 1024**2, "MB")
+        #print("3", torch.cuda.memory_allocated() / 1024**2, "MB")
         self._manage_memory_obj(self.frame_idx, current_out)
 
         _, video_res_masks = self._get_orig_video_res_output(pred_masks_gpu)
-        print("4", torch.cuda.memory_allocated() / 1024**2, "MB")
+        #print("4", torch.cuda.memory_allocated() / 1024**2, "MB")
         torch.cuda.empty_cache()
         return obj_ids, video_res_masks
 

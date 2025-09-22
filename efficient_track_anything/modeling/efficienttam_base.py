@@ -911,7 +911,6 @@ class EfficientTAMBase(torch.nn.Module):
             and (is_init_cond_frame or self.multimask_output_for_tracking)
             and (self.multimask_min_pt_num <= num_pts <= self.multimask_max_pt_num)
         )
-        print("multimask_output:", multimask_output, "num_pts:", num_pts)
         return multimask_output
 
     def _apply_non_overlapping_constraints(self, pred_masks):
