@@ -197,6 +197,7 @@ class EfficientTAMBase(torch.nn.Module):
                 dynamic=False,
             )
 
+
     @property
     def device(self):
         return next(self.parameters()).device
@@ -856,17 +857,32 @@ class EfficientTAMBase(torch.nn.Module):
         )
 
         (
-            _,
-            _,
-            _,
+            low_res_multimasks,
+            high_res_multimasks,
+            ious,
             low_res_masks,
             high_res_masks,
             obj_ptr,
             object_score_logits,
         ) = sam_outputs
 
-        current_out["pred_masks"] = low_res_masks
-        current_out["pred_masks_high_res"] = high_res_masks
+        current_out["pred_multimasks"] = low_res_multimasks # 1, 1, 128, 128 (B, K, H_lr, W_lr)
+        current_out["pred_multimasks_high_res"] = high_res_multimasks  # 1, 3, 128, 128 (B, K, H_hr, W_hr)
+        current_out["pred_ious"] = ious # 1, 3 (B, K)
+        current_out["pred_masks"] = low_res_masks # 1, 1, 128, 128
+        current_out["pred_masks_high_res"] = high_res_masks # 1, 3, 512, 512
+
+        # Test for selecting a specific mask from the multimask output
+        """
+        lm = current_out["pred_multimasks"]            # (B, K, H_lr, W_lr)
+        hm = current_out["pred_multimasks_high_res"]   # (B, K, H, W)
+        k = 2  # choose the candidate index
+        current_out["selected_multimask_index"] = k
+        current_out["pred_masks"] = lm[:, k:k+1, ...]           # (B,1,H_lr,W_lr)
+        current_out["pred_masks_high_res"] = hm[:, k:k+1, ...]  # (B,1,H,W)
+        print(current_out["pred_masks"].shape, current_out["pred_masks_high_res"].shape)
+        """
+        
         current_out["obj_ptr"] = obj_ptr
         if not self.training:
             # Only add this in inference (to avoid unused param in activation checkpointing;
@@ -895,6 +911,7 @@ class EfficientTAMBase(torch.nn.Module):
             and (is_init_cond_frame or self.multimask_output_for_tracking)
             and (self.multimask_min_pt_num <= num_pts <= self.multimask_max_pt_num)
         )
+        print("multimask_output:", multimask_output, "num_pts:", num_pts)
         return multimask_output
 
     def _apply_non_overlapping_constraints(self, pred_masks):
