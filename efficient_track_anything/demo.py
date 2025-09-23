@@ -21,7 +21,7 @@ def demo_sequence():
     img = read_frame(FIRST_FRAME_PATH)
     predictor.predictor.load_first_frame(img)
 
-    _, out_mask_logits = start(predictor, img, points=points, labels=labels)
+    _, out_mask_logits = start(predictor, points=points, labels=labels)
     mask = masks_to_uint8_batch(out_mask_logits)
     overlay = overlay_mask_bgr(img, mask[0], alpha=0.3)
     save_imgs(overlay, out_dir=IMG_DIR, filename = "1_output")
