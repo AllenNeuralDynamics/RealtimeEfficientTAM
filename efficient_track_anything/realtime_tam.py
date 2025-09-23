@@ -55,7 +55,6 @@ def build_predictor(
 
 def start(
     state: TAMState,
-    first_frame: np.ndarray,
     points: np.ndarray = np.array([[0, 0]], dtype=np.float32),
     obj_id: int = 0,
     labels: np.ndarray = np.array([1], dtype=np.int32),
@@ -68,13 +67,38 @@ def start(
     print("[Realtime Efficient TAM] Starting new sequence...")
     if state.initialized:
         return
-    #state.predictor.load_first_frame(first_frame)
-    print("[Realtime Efficient TAM] Loaded first frame...")
     _, out_obj_ids, out_mask_logits = state.predictor.add_new_prompts(
         frame_idx=frame_idx,
         obj_id=obj_id,
         points=points,
         labels=labels,
+    )
+    print("[Realtime Efficient TAM] Added new prompts...")
+    state.initialized = True
+    state.frame_idx = frame_idx
+    state.obj_id = obj_id
+
+    return out_obj_ids, out_mask_logits
+
+def start_with_mask(
+    state: TAMState,
+    obj_id: int = 0,
+    mask: np.ndarray = None,
+    frame_idx: int = 0,
+) -> None:
+
+    print("[Realtime Efficient TAM] Starting new sequence...")
+    if state.initialized:
+        return
+
+    if mask is None:
+        raise ValueError("Mask must be provided for start_with_mask.")
+        return
+
+    _, out_obj_ids, out_mask_logits = state.predictor.add_new_mask(
+        frame_idx=frame_idx,
+        obj_id=obj_id,
+        mask=mask,
     )
     print("[Realtime Efficient TAM] Added new prompts...")
     state.initialized = True

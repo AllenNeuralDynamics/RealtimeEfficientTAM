@@ -162,10 +162,15 @@ def converter_pts_after_crop(pts, left, top):
     pts: (N,2) or (2,) in global image coordinates
     left, top: crop's top-left corner in the global image
     """
+    original_shape = pts.shape
     pts = _to_np_xy(pts).copy()
     pts[:, 0] -= float(left)
     pts[:, 1] -= float(top)
-    return pts
+    # Return in original format
+    if original_shape == (2,):  # Single point input
+        return pts.squeeze()  # Return as (2,) not (1,2)
+    else:
+        return pts
 
 def converter_pts_after_resize(pts, src_wh, dst_wh):
     """
@@ -173,6 +178,7 @@ def converter_pts_after_resize(pts, src_wh, dst_wh):
     src_wh: (src_w, src_h) of the crop BEFORE resize
     dst_wh: (dst_w, dst_h) of the resized local image
     """
+    original_shape = pts.shape
     pts = _to_np_xy(pts).copy()
     src_w, src_h = float(src_wh[0]), float(src_wh[1])
     dst_w, dst_h = float(dst_wh[0]), float(dst_wh[1])
@@ -180,7 +186,11 @@ def converter_pts_after_resize(pts, src_wh, dst_wh):
     sy = dst_h / src_h
     pts[:, 0] *= sx
     pts[:, 1] *= sy
-    return pts
+        # Return in original format
+    if original_shape == (2,):  # Single point input
+        return pts.squeeze()  # Return as (2,) not (1,2)
+    else:
+        return pts
 
 def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float = 0.35, color=(0, 255, 0)) -> np.ndarray:
     overlay = frame_bgr.copy()
@@ -230,7 +240,7 @@ def mask_to_bbox_xyxy(mask_u8: np.ndarray, img_shape=None, pad: int = 10):
 
     return (x1, y1, x2, y2)  # (left, top, right, bottom), right/bottom are EXCLUSIVE
 
-def lift_local_mask_to_global(mask_local_u8, left, top, right, bottom, global_hw):
+def lift_local_mask_to_global(mask_local_u8, bbox, global_hw):
     """
     Take a local (resized-crop) mask and paste it back into a full-frame mask.
     - mask_local_u8: (h_local, w_local) uint8 mask (0/255)
@@ -238,6 +248,7 @@ def lift_local_mask_to_global(mask_local_u8, left, top, right, bottom, global_hw
     - global_hw: (H, W) of the original image
     Returns: (H, W) uint8 mask with the local mask placed into the bbox region.
     """
+    left, top, right, bottom = bbox
     H, W = int(global_hw[0]), int(global_hw[1])
     out = np.zeros((H, W), dtype=mask_local_u8.dtype)
 
