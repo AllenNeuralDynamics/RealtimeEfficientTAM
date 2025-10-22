@@ -180,7 +180,7 @@ def build_efficienttam_camera_predictor(
     ckpt_path=None,
     device="cuda",
     mode="eval",
-    hydra_overrides_extra=[],
+    hydra_overrides_extra=["++model.compile_image_encoder=False"],
     apply_postprocessing=True,
     vos_optimized=False,
     **kwargs,
