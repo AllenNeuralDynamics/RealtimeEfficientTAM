@@ -199,7 +199,8 @@ def build_efficienttam_camera_predictor(
             "++model.compile_image_encoder=True",  # Let efficienttam_base handle this
         ]
 
-    fill_hole_area = 8 if torch.cuda.is_available() else 0
+    #fill_hole_area = 8 if torch.cuda.is_available() else 0  # cannot import name _C
+    fill_hole_area = 0
 
     if apply_postprocessing:
         hydra_overrides_extra = hydra_overrides_extra.copy()
