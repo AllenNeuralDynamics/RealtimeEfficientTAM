@@ -1,50 +1,90 @@
-# aind-python-library-template
-[![License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+# Real Time Efficient TAM
+<img width="200" height="150" alt="1_output" src="https://github.com/user-attachments/assets/c21712cd-a006-4dc2-97ac-c5f224c7e7a2" />
+<img width="200" height="150" alt="2_output" src="https://github.com/user-attachments/assets/3337840b-3352-4b5f-9425-dbdd32f9da0a" />
+<img width="200" height="150" alt="3_output" src="https://github.com/user-attachments/assets/e7396370-536e-4bc6-88bb-6c548fc659d1" />
 
+### Getting Started
+- python >= 3.10
 
-This is a repository template to quickly setup a python library project. This repository utilizes a tool called **uv** to handle all dependency and package management. For more information on this tool go to the [uv wiki](https://docs.astral.sh/uv/). 
-
-##  Getting Started
-
-- To use this template, click the green ``Use this template`` button and ``Create new repository``.
-- [Install uv](https://docs.astral.sh/uv/getting-started/installation/)
-
-## Tools
-
-### Package/Project Management 
-
-This project utilizes [uv](https://docs.astral.sh/uv/) to handle installing dependencies as well as setting up environments for this project. It replaces tool like pip, poetry, virtualenv, and conda. 
-
-This project also uses [tox](https://tox.wiki/en/latest/index.html) for orchestrating multiple testing environments that mimics the github actions CI/CD so that you can test the workflows locally on your machine before pushing changes. 
-
-### Code Quality Check
-
-The following are tools used to ensure code quality in this project. 
-
-- Unit Testing
-
+### 1. Installation
+Create a virtual environment with **Python 3.10** and activate it
+Then, install RealtimeEfficientTam; 
 ```bash
-uv run pytest tests
+git clone https://github.com/AllenNeuralDynamics/RealtimeEfficientTAM.git
+cd RealtimeEfficientTAM
+pip install -e .
 ```
 
-- Linting
-
+### 2. Download Checkpoints
 ```bash
-uv run ruff check
+cd checkpoints
+./download_checkpoints.sh
+```
+or EfficientTAM checkpoints are available at [the Hugging Face Space](https://huggingface.co/yunyangx/efficient-track-anything/tree/main).
+
+### 3. Run Example
+```bash
+python -m efficient_track_anything.demo
 ```
 
-- Type Check
-
+### 4. Usage
+Building a predictor:
 ```bash
-uv run mypy src/mypackage
+from efficient_track_anything.realtime_tam import build_predictor
+# Build the predictor, which handles model loading and device setup
+predictor = build_predictor()
 ```
 
-## Documentation
-To generate the rst files source files for documentation, run
+Track:
 ```bash
-sphinx-apidoc -o docs/source/ src
+# Start a new track
+from efficient_track_anything.realtime_tam import start
+
+# Load your initial frame (NumPy array/OpenCV image)
+initial_frame = load_your_frame(...) 
+
+# Load the first frame into the predictor's state
+predictor.predictor.load_first_frame(initial_frame)
+
+# Define user prompts 
+points = np.array([[x1, y1], [x2, y2]], dtype=np.float32) 
+labels = np.array([1, 1], dtype=np.int32) # 1 for foreground, 0 for background
+
+# Run the initial detection
+# Returns: (None, mask_logits)
+_, out_mask_logits = start(predictor, points=points, labels=labels)
 ```
-Then to create the documentation HTML files, run
+
+
+### For developers:
+Install the package along with dev dependencies:
 ```bash
-sphinx-build -b html docs/source/ docs/build/html
+pip install -e .[dev]
+```
+
+### License
+Efficient track anything checkpoints and codebase are licensed under Apache 2.0.
+Implementation of real-time EfficientTAM[📕Project]
+
+### 🙏 Acknowledgements 
+We gratefully acknowledge the contributions of the developers at Meta and GitHub for making these innovative projects available to the open-source community.
+This work builds upon the following projects:
+- [SAM2](https://github.com/facebookresearch/segment-anything-2)  
+- [EfficientTAM](https://github.com/facebookresearch/EfficientTAM)  
+- [segment-anything-2-real-time](https://github.com/Gy920/segment-anything-2-real-time)
+
+
+### 📖 Citation
+
+If you use this repository in your research or applications, please cite **EfficientTAM**:
+
+```bibtex
+@article{xiong2024efficienttam,
+  title={Efficient Track Anything},
+  author={Yunyang Xiong, Chong Zhou, Xiaoyu Xiang, Lemeng Wu, Chenchen Zhu, Zechun Liu, Saksham Suri, 
+          Balakrishnan Varadarajan, Ramya Akula, Forrest Iandola, Raghuraman Krishnamoorthi, 
+          Bilge Soran, Vikas Chandra},
+  journal={arXiv preprint arXiv:2411.18933},
+  year={2024}
+}
 ```

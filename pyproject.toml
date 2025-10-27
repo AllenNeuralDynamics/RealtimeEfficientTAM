@@ -1,24 +1,88 @@
-[project]
-name = "mypackage"
-version = "0.1.0"
+[build-system]
+# Torch is needed at build time for torch.utils.cpp_extension
+requires = ["setuptools>=69", "wheel", "torch>=2.5.1"]
+build-backend = "setuptools.build_meta"
 
+[project]
+name = "efficient_track_anything"
+description = "Realtime Efficient Track Anything"
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = [
-    "pytest>=8.3.5",
-    "ruff>=0.9.9",
+dynamic = ["version"]
+requires-python = ">=3.10"
+authors = [
+  { name = "Hanna Lee", email = "hanna.lee@alleninstitute.org" }
 ]
+license = { text = "Apache-2.0" }
+keywords = ["tracking", "segmentation", "computer-vision", "pytorch", "sam2"]
+dependencies = [
+  "torch>=2.5.1",
+  "torchvision>=0.20.1",
+  "numpy>=1.24.4",
+  "tqdm>=4.66.1",
+  "hydra-core>=1.3.2",
+  "iopath>=0.1.10",
+  "pillow>=9.4.0",
+  "huggingface-hub==0.26.2",
+  "gradio==4.44.0",
+  "gradio_client==1.3.0",
+  "opencv-python>=4.7.0",
+  "supervision==0.25.0",
+]
+#"imageio==2.9.0",
+# "moviepy==1.0.3",
+#  "imageio-ffmpeg==0.5.1",
 
 [project.optional-dependencies]
-docs = [
-    'Sphinx',
-    'sphinx-jinja',
-    'furo',
-    'docutils'
+notebooks = [
+  "matplotlib>=3.9.1",
+  "jupyter>=1.0.0",
+  "opencv-python>=4.7.0",
+  "eva-decord>=0.6.1",
 ]
 
-[tool.pytest.ini_options]
-pythonpath = ["src", "tests"]
+dev = [
+  "black==24.2.0",
+  "usort==1.0.2",
+  "ufmt==2.0.0b2",
+  "fvcore>=0.1.5.post20221221",
+  "pandas>=2.2.2",
+  "scikit-image>=0.24.0",
+  "tensorboard>=2.17.0",
+  "pycocotools>=2.0.8",
+  "tensordict>=0.6.0",
+  "opencv-python>=4.7.0",
+  "submitit>=1.5.1",
+  "pytest>=8.3.5",
+  "ruff>=0.9.9",
+]
 
-[[tool.uv.index]]
-url = "http://eng-tools:3141/aibs/packages/+simple"
+docs = [
+  "Sphinx",
+  "sphinx-jinja",
+  "furo",
+  "docutils",
+]
+
+[project.urls]
+Homepage = "https://github.com/AllenNeuralDynamics/RealtimeEfficientTAM"
+Repository = "https://github.com/AllenNeuralDynamics/RealtimeEfficientTAM"
+
+# Tell setuptools how to find packages & data
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["efficient_track_anything*"]
+exclude = ["notebooks*", "docs*", "tests*"]
+
+# Ship non-Python assets (weights/configs)
+[tool.setuptools.package-data]
+efficient_track_anything = [
+  "csrc/*.cu",
+  "**/*.yaml",
+  "**/*.json",
+  "**/*.md",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "efficient_track_anything.__version__"}
