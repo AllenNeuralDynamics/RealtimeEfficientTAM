@@ -42,4 +42,5 @@ def demo_sequence():
     print("Saved masks for third frame to " + str(IMG_DIR / "3_output.png"))
 
 
-demo_sequence()
+if __name__ == "__main__":
+    demo_sequence()

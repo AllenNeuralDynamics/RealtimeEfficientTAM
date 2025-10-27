@@ -31,7 +31,6 @@ MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" 
 #TAM_CHECKPOINT = (REPO / "checkpoints" / "efficienttam_ti_512x512.pt")
 #MODEL_CFG     = (REPO / "efficient_track_anything" / "configs" / "efficienttam" / "efficienttam_ti_512x512.yaml")
 
-
 def point_to_segment_dist(pt, a, b):
     # pt, a, b are (x, y)
     p = np.array(pt, dtype=float)
@@ -92,33 +91,6 @@ def detect_line_on_pt(img, pt, mask=None):
         print("No line mask created.")
 
     return mask
-
-def track_local(mask_global, img, predictor_local, pt_global=None, labels=labels, pad=20):
-    bbox = mask_to_bbox_xyxy(mask_global[0], img.shape, pad=pad)  # (x1,y1,x2,y2)
-    if not bbox:
-        raise RuntimeError("No foreground detected in the first frame.")
-    
-    left, top, right, bottom = bbox
-    crop = img[top:bottom, left:right]                  # exclusive right/bottom
-    crop_h, crop_w = crop.shape[:2]
-    local_img = cv2.resize(crop, (w, h), interpolation=cv2.INTER_LINEAR)
-    #local_img = preprocess(local_img)
-    
-    if pt_global is not None: # Start tracking with a point prompt
-        # --- Convert points: global -> crop-relative -> resized (local) ---
-        pt_crop = converter_pts_after_crop(pt_global, left=left, top=top)                 # to crop coords
-        pt_local = converter_pts_after_resize(pt_crop, src_wh=(crop_w, crop_h), dst_wh=(w, h))  # to local coords
-        predictor_local.predictor.load_first_frame(local_img)
-        _, out_mask_logits = start(predictor_local, local_img, points=pt_local, labels=labels)
-    else:
-        _, out_mask_logits = track(predictor_local, local_img)
-    mask_local = masks_to_uint8_batch(out_mask_logits)
-
-    # mask_local[0] matches local_img size (w,h); lift it back to full-frame
-    H, W = img.shape[:2]
-    mask_local_global = lift_local_mask_to_global(mask_local[0], left, top, right, bottom, (H, W))
-
-    return mask_local_global
 
 def crop_and_resize(bbox, img, w=512, h=512):
     left, top, right, bottom = bbox

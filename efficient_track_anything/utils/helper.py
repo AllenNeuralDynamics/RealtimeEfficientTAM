@@ -63,9 +63,7 @@ def get_device() -> torch.device:
         print("Note: MPS support is preliminary; outputs may differ vs CUDA.")
     else:
         device = torch.device("cpu")
-    print(f"using device: {device}")
     return device
-
 
 def overlay_mask_bgr(
     frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float = 0.35, color=(0, 255, 0)
@@ -162,15 +160,18 @@ def converter_pts_after_crop(pts, left, top):
     pts: (N,2) or (2,) in global image coordinates
     left, top: crop's top-left corner in the global image
     """
-    original_shape = pts.shape
-    pts = _to_np_xy(pts).copy()
-    pts[:, 0] -= float(left)
-    pts[:, 1] -= float(top)
+    
+    pts_np = _to_np_xy(pts).copy()
+    original_shape = pts_np.shape
+    
+    pts_np[:, 0] -= float(left)
+    pts_np[:, 1] -= float(top)
+    
     # Return in original format
     if original_shape == (2,):  # Single point input
-        return pts.squeeze()  # Return as (2,) not (1,2)
+        return pts_np.squeeze()  # Return as (2,) not (1,2)
     else:
-        return pts
+        return pts_np
 
 def converter_pts_after_resize(pts, src_wh, dst_wh):
     """
@@ -178,19 +179,23 @@ def converter_pts_after_resize(pts, src_wh, dst_wh):
     src_wh: (src_w, src_h) of the crop BEFORE resize
     dst_wh: (dst_w, dst_h) of the resized local image
     """
-    original_shape = pts.shape
-    pts = _to_np_xy(pts).copy()
+    # Convert to numpy array first, then get original shape
+    pts_np = _to_np_xy(pts).copy()
+    original_shape = pts_np.shape
+    
     src_w, src_h = float(src_wh[0]), float(src_wh[1])
     dst_w, dst_h = float(dst_wh[0]), float(dst_wh[1])
     sx = dst_w / src_w
     sy = dst_h / src_h
-    pts[:, 0] *= sx
-    pts[:, 1] *= sy
-        # Return in original format
+    
+    pts_np[:, 0] *= sx
+    pts_np[:, 1] *= sy
+        
+    # Return in original format
     if original_shape == (2,):  # Single point input
-        return pts.squeeze()  # Return as (2,) not (1,2)
+        return pts_np.squeeze()  # Return as (2,) not (1,2)
     else:
-        return pts
+        return pts_np
 
 def overlay_mask_bgr(frame_bgr: np.ndarray, mask_uint8: np.ndarray, alpha: float = 0.35, color=(0, 255, 0)) -> np.ndarray:
     overlay = frame_bgr.copy()
