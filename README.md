@@ -52,6 +52,13 @@ labels = np.array([1, 1], dtype=np.int32) # 1 for foreground, 0 for background
 _, out_mask_logits = start(predictor, points=points, labels=labels)
 ```
 
+
+### For developers:
+Install the package along with dev dependencies:
+```bash
+pip install -e .[dev]
+```
+
 ### License
 Efficient track anything checkpoints and codebase are licensed under Apache 2.0.
 Implementation of real-time EfficientTAM[📕Project]
@@ -77,38 +84,4 @@ If you use this repository in your research or applications, please cite **Effic
   journal={arXiv preprint arXiv:2411.18933},
   year={2024}
 }
-```
-
----
-
-### Code Quality Check
-
-The following are tools used to ensure code quality in this project. 
-
-- Unit Testing
-
-```bash
-uv run pytest tests
-```
-
-- Linting
-
-```bash
-uv run ruff check
-```
-
-- Type Check
-
-```bash
-uv run mypy src/mypackage
-```
-
-## Documentation
-To generate the rst files source files for documentation, run
-```bash
-sphinx-apidoc -o docs/source/ src
-```
-Then to create the documentation HTML files, run
-```bash
-sphinx-build -b html docs/source/ docs/build/html
 ```
