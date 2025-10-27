@@ -4,24 +4,54 @@
 - python >= 3.10
 
 ### 1. Installation
+Create a virtual environment with **Python 3.10** and activate it
+Then, install RealtimeEfficientTam; 
 ```bash
 git clone https://github.com/AllenNeuralDynamics/RealtimeEfficientTAM.git
 cd RealtimeEfficientTAM
-conda create -n rttam python=3.10
-conda activate rttam
 pip install -e .
 ```
+
 ### 2. Download Checkpoints
 ```bash
 cd checkpoints
 ./download_checkpoints.sh
 ```
-or EfficientTAM checkpoints are available at the Hugging Face Space.
+or EfficientTAM checkpoints are available at [the Hugging Face Space](https://huggingface.co/yunyangx/efficient-track-anything/tree/main).
 
-### 3. Run 
-TBD
+### 3. Run Example
+```bash
+python -m efficient_track_anything.demo
+```
 
----
+### 4. Usage
+Building a predictor:
+```bash
+from efficient_track_anything.realtime_tam import build_predictor
+# Build the predictor, which handles model loading and device setup
+predictor = build_predictor()
+```
+
+Track:
+```bash
+# Start a new track
+from efficient_track_anything.realtime_tam import start
+
+# Load your initial frame (NumPy array/OpenCV image)
+initial_frame = load_your_frame(...) 
+
+# Load the first frame into the predictor's state
+predictor.predictor.load_first_frame(initial_frame)
+
+# Define user prompts 
+points = np.array([[x1, y1], [x2, y2]], dtype=np.float32) 
+labels = np.array([1, 1], dtype=np.int32) # 1 for foreground, 0 for background
+
+# Run the initial detection
+# Returns: (None, mask_logits)
+_, out_mask_logits = start(predictor, points=points, labels=labels)
+```
+
 ### License
 Efficient track anything checkpoints and codebase are licensed under Apache 2.0.
 Implementation of real-time EfficientTAM[📕Project]
