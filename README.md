@@ -1,4 +1,7 @@
 # Real Time Efficient TAM
+<img width="200" height="150" alt="1_output" src="https://github.com/user-attachments/assets/c21712cd-a006-4dc2-97ac-c5f224c7e7a2" />
+<img width="200" height="150" alt="2_output" src="https://github.com/user-attachments/assets/3337840b-3352-4b5f-9425-dbdd32f9da0a" />
+<img width="200" height="150" alt="3_output" src="https://github.com/user-attachments/assets/e7396370-536e-4bc6-88bb-6c548fc659d1" />
 
 ### Getting Started
 - python >= 3.10
