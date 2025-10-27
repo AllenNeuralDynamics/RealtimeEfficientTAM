@@ -4,7 +4,7 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 
 from hydra import initialize_config_module
 from hydra.core.global_hydra import GlobalHydra

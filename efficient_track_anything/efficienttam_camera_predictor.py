@@ -849,6 +849,13 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         # object pointer is a small tensor, so we always keep it on GPU memory for fast access
         obj_ptr = current_out["obj_ptr"]
         object_score_logits = current_out["object_score_logits"]
+
+        # Calculate confidence (Sigmoid of logits)
+        #mean_confidence = expit(object_score_logits.mean().item())
+        # logits_cpu = object_score_logits.cpu()
+        mean_confidence = torch.sigmoid(object_score_logits).mean().item()
+        CONFIDENCE_THRESHOLD = 0.1
+
         # make a compact version of this frame's output to reduce the state size
         current_out = {
             "maskmem_features": maskmem_features,
@@ -857,10 +864,14 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             "obj_ptr": obj_ptr,
             "object_score_logits": object_score_logits
         }
-        self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
-        output_dict["non_cond_frame_outputs"][self.frame_idx] = current_out
-        #print("3", torch.cuda.memory_allocated() / 1024**2, "MB")
-        self._manage_memory_obj(self.frame_idx, current_out)
+
+        if mean_confidence > CONFIDENCE_THRESHOLD:
+            self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
+            output_dict["non_cond_frame_outputs"][self.frame_idx] = current_out
+            #print("3", torch.cuda.memory_allocated() / 1024**2, "MB")
+            self._manage_memory_obj(self.frame_idx, current_out)
+        else:
+            print(f"Frame {self.frame_idx}: Low confidence score ({mean_confidence:.3f}). Skipping memory update.")
 
         _, video_res_masks = self._get_orig_video_res_output(pred_masks_gpu)
         #print("4", torch.cuda.memory_allocated() / 1024**2, "MB")
