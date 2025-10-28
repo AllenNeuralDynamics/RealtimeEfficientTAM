@@ -40,13 +40,17 @@ def build_predictor(
     model_cfg: str = str(DEFAULT_MODEL_CFG),
     tam_checkpoint: str = str(DEFAULT_TAM_CHECKPOINT),
     device: Optional[torch.device] = None,
+    name: Optional[str] = None,
 ) -> TAMState:
     """
     Build the EfficientTAM camera predictor and wrap it in a TAMState.
     """
     device = device or get_device()
     predictor = build_efficienttam_camera_predictor(model_cfg, tam_checkpoint, device=device)
-    print("[Realtime Efficient TAM] TAM model built successfully.")
+    if name:
+        print(f"'{name}' - [Realtime Efficient TAM] TAM model built successfully.")
+    else:
+        print(f"[Realtime Efficient TAM] TAM model built successfully.")
     return TAMState(predictor=predictor, device=device)
 
 # ----------------------------
@@ -59,6 +63,7 @@ def start(
     obj_id: int = 0,
     labels: np.ndarray = np.array([1], dtype=np.int32),
     frame_idx: int = 0,
+    name: Optional[str] = None
 ) -> None:
     """
     Initialize the sequence on the first frame with prompts.
@@ -73,7 +78,10 @@ def start(
         points=points,
         labels=labels,
     )
-    print("[Realtime Efficient TAM] Added new prompts...")
+    if name:
+        print(f"'{name}' - [Realtime Efficient TAM] Added new prompts...")
+    else:
+        print("[Realtime Efficient TAM] Added new prompts...")
     state.initialized = True
     state.frame_idx = frame_idx
     state.obj_id = obj_id
@@ -85,9 +93,13 @@ def start_with_mask(
     obj_id: int = 0,
     mask: np.ndarray = None,
     frame_idx: int = 0,
+    name: Optional[str] = None
 ) -> None:
 
-    print("[Realtime Efficient TAM] Starting new sequence...")
+    if name:
+        print(f"'{name}' - [Realtime Efficient TAM] Starting new sequence with mask...")
+    else:
+        print("[Realtime Efficient TAM] Starting new sequence with mask...")
     if state.initialized:
         return
 
@@ -100,15 +112,21 @@ def start_with_mask(
         obj_id=obj_id,
         mask=mask,
     )
-    print("[Realtime Efficient TAM] Added new prompts...")
+    if name:
+        print(f"'{name}' - [Realtime Efficient TAM] Added new prompts...")
+    else:
+        print("[Realtime Efficient TAM] Added new prompts...")
     state.initialized = True
     state.frame_idx = frame_idx
     state.obj_id = obj_id
 
     return out_obj_ids, out_mask_logits
 
-def track(state: TAMState, frame: np.ndarray) -> Tuple[List[int], torch.Tensor]:
-    print(f"[Realtime Efficient TAM] Tracking frame {state.frame_idx+1}...")
+def track(state: TAMState, frame: np.ndarray, name: Optional[str] = None) -> Tuple[List[int], torch.Tensor]:
+    if name:
+        print(f"'{name}' - [Realtime Efficient TAM] Tracking frame {state.frame_idx}...")
+    else:
+        print(f"[Realtime Efficient TAM] Tracking frame {state.frame_idx}...")
     if not state.initialized:
         raise RuntimeError("Call start(...) once before track(...).")
     amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16) if state.device.type == "cuda" else contextlib.nullcontext()
