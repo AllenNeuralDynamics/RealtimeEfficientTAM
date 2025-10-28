@@ -131,6 +131,6 @@ def track(state: TAMState, frame: np.ndarray, name: Optional[str] = None) -> Tup
         raise RuntimeError("Call start(...) once before track(...).")
     amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16) if state.device.type == "cuda" else contextlib.nullcontext()
     with torch.inference_mode(), amp_ctx:
-        out_obj_ids, out_mask_logits = state.predictor.track(frame)
+        out_obj_ids, out_mask_logits = state.predictor.track(frame, name=name)
     state.frame_idx += 1
     return out_obj_ids, out_mask_logits
