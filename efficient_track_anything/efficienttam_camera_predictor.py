@@ -795,6 +795,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
     def track(
         self,
         img,
+        name=None,
     ):  
         self.frame_idx += 1
         self.condition_state["num_frames"] += 1
@@ -864,6 +865,9 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             "obj_ptr": obj_ptr,
             "object_score_logits": object_score_logits
         }
+
+        if name is not None:
+            print(f"{name} - Frame {self.frame_idx} Mean confidence score = {mean_confidence:.3f}")
 
         if mean_confidence > CONFIDENCE_THRESHOLD:
             self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
