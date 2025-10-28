@@ -854,7 +854,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         #mean_confidence = expit(object_score_logits.mean().item())
         # logits_cpu = object_score_logits.cpu()
         mean_confidence = torch.sigmoid(object_score_logits).mean().item()
-        CONFIDENCE_THRESHOLD = 0.1
+        CONFIDENCE_THRESHOLD = 0.5
 
         # make a compact version of this frame's output to reduce the state size
         current_out = {
@@ -865,7 +865,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
             "object_score_logits": object_score_logits
         }
 
-        print(f" {self.frame_idx} mean_confidence:", mean_confidence)
         if mean_confidence > CONFIDENCE_THRESHOLD:
             self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
             output_dict["non_cond_frame_outputs"][self.frame_idx] = current_out
