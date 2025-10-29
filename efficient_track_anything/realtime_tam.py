@@ -122,7 +122,7 @@ def start_with_mask(
 
     return out_obj_ids, out_mask_logits
 
-def track(state: TAMState, frame: np.ndarray, name: Optional[str] = None) -> Tuple[List[int], torch.Tensor]:
+def track(state: TAMState, frame: np.ndarray, name: Optional[str] = None, confidence_threshold: float = 0.5) -> Tuple[List[int], torch.Tensor]:
     if name:
         print(f"'{name}' - [Realtime Efficient TAM] Tracking frame {state.frame_idx}...")
     else:
@@ -131,6 +131,6 @@ def track(state: TAMState, frame: np.ndarray, name: Optional[str] = None) -> Tup
         raise RuntimeError("Call start(...) once before track(...).")
     amp_ctx = torch.autocast("cuda", dtype=torch.bfloat16) if state.device.type == "cuda" else contextlib.nullcontext()
     with torch.inference_mode(), amp_ctx:
-        out_obj_ids, out_mask_logits = state.predictor.track(frame, name=name)
+        out_obj_ids, out_mask_logits = state.predictor.track(frame, name=name, confidence_threshold=confidence_threshold)
     state.frame_idx += 1
     return out_obj_ids, out_mask_logits
