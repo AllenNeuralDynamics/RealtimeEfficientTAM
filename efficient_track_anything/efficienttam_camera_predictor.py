@@ -796,6 +796,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         self,
         img,
         name=None,
+        confidence_threshold=0.5,
     ):  
         self.frame_idx += 1
         self.condition_state["num_frames"] += 1
@@ -855,7 +856,6 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         #mean_confidence = expit(object_score_logits.mean().item())
         # logits_cpu = object_score_logits.cpu()
         mean_confidence = torch.sigmoid(object_score_logits).mean().item()
-        CONFIDENCE_THRESHOLD = 0.5
 
         # make a compact version of this frame's output to reduce the state size
         current_out = {
@@ -869,7 +869,7 @@ class EfficientTAMCameraPredictor(EfficientTAMBase):
         if name is not None:
             print(f"{name} - Frame {self.frame_idx} Mean confidence score = {mean_confidence:.3f}")
 
-        if mean_confidence > CONFIDENCE_THRESHOLD:
+        if mean_confidence > confidence_threshold:
             self._add_output_per_object(self.frame_idx, current_out, "non_cond_frame_outputs")
             output_dict["non_cond_frame_outputs"][self.frame_idx] = current_out
             #print("3", torch.cuda.memory_allocated() / 1024**2, "MB")
